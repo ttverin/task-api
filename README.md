@@ -124,19 +124,108 @@ Run the compiled app:
 npm start
 ```
 
-## Run with Docker
+## Run with Docker Compose
 
-This project includes a `Dockerfile`, so you can build and run the API in a container.
+The easiest container setup is `docker-compose.yml`, which starts:
 
-### Build the image
+- `db` — PostgreSQL 15
+- `api` — the Task API on port `3000`
+
+### Start the stack
+
+```bash
+docker compose up --build
+```
+
+Run in detached mode:
+
+```bash
+docker compose up -d --build
+```
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+### Test the Compose stack
+
+```bash
+curl -i http://localhost:3000/health
+```
+
+```bash
+curl -i http://localhost:3000/tasks
+```
+
+```bash
+curl -i -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Task1"}'
+```
+
+```bash
+curl -i -X DELETE http://localhost:3000/tasks/1
+```
+
+### Important: database initialization only runs on first volume creation
+
+The Compose setup mounts `docker/init.sql` into Postgres:
+
+```text
+/docker-entrypoint-initdb.d/init.sql
+```
+
+That script creates the `tasks` table, but Postgres only runs files in that directory when the database volume is initialized for the first time.
+
+If you already started Postgres before adding or changing `docker/init.sql`, the existing `pgdata` volume will be reused and the script will not run again.
+
+If that happens, you may see an error like:
+
+```text
+relation "tasks" does not exist
+```
+
+To rebuild the database from scratch and re-run the init script:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+Use `down -v` only when you are okay deleting the Compose database data.
+
+### Current Compose credentials
+
+The current `docker-compose.yml` uses:
+
+```text
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=taskdb
+```
+
+The API container connects with matching values:
+
+```text
+DB_HOST=db
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=taskdb
+PORT=3000
+```
+
+## Run with Docker only
+
+If you want to run only the API container and use a PostgreSQL instance running on your Mac, build the image first:
 
 ```bash
 docker build -t task-api .
 ```
 
-### Run the container
-
-If PostgreSQL is running on your Mac, use `host.docker.internal` so the container can reach the database on the host machine:
+Then run it:
 
 ```bash
 docker run --rm -p 3000:3000 \
@@ -149,23 +238,15 @@ docker run --rm -p 3000:3000 \
   task-api
 ```
 
-Then test it with:
+Do not use the local `.env` file as-is for this container flow, because `DB_HOST=localhost` would point to the container itself.
 
-```bash
-curl -i http://localhost:3000/health
-```
-
-### Use an env file instead of many `-e` flags
-
-Because `.env` is excluded by `.dockerignore`, it is not copied into the image. Pass environment variables at runtime instead:
+You can instead create a `.env.docker` file and run:
 
 ```bash
 docker run --rm -p 3000:3000 --env-file .env.docker task-api
 ```
 
-Do not use the current local `.env` file as-is for Docker, because it contains `DB_HOST=localhost`. Inside the container, `localhost` points to the container itself, not your Mac.
-
-Create a Docker-specific env file such as `.env.docker`:
+Suggested `.env.docker` for macOS host Postgres:
 
 ```dotenv
 PORT=3000
@@ -176,18 +257,6 @@ DB_PASSWORD=
 DB_PORT=5432
 ```
 
-Then run:
-
-```bash
-docker run --rm -p 3000:3000 --env-file .env.docker task-api
-```
-
-### Notes
-
-- The image exposes port `3000`
-- The app now defaults to port `3000` if `PORT` is not set
-- If PostgreSQL is running in another container, `DB_HOST` should be that container or service name instead of `host.docker.internal`
-- The `tasks` table must already exist before the API can read or write tasks
 
 ## API examples
 
