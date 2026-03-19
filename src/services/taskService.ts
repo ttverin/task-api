@@ -1,25 +1,25 @@
+import { pool } from "../config/db";
 import type { Task } from "../models/tasks";
 
-let tasks: Task[] = [];
-
-export const getAllTasks = (): Task[] => {
-    return tasks;
+export const getAllTasks = async (): Promise<Task[]> => {
+    const result = await pool.query("SELECT * FROM tasks ORDER BY id");
+    return result.rows;
 };
 
-export const createTask = (name: string): Task => {
-    const newTask: Task = {
-        id: tasks.length + 1,
-        name
-    };
+export const createTask = async (name: string): Promise<Task> => {
+    const result = await pool.query(
+        "INSERT INTO tasks (name) VALUES ($1) RETURNING *",
+        [name]
+    );
 
-    tasks.push(newTask);
-    return newTask;
+    return result.rows[0];
 };
 
-export const removeTask = (id: number): boolean => {
-    const initialLength = tasks.length;
+export const removeTask = async (id: number): Promise<boolean> => {
+    const result = await pool.query(
+        "DELETE FROM tasks WHERE id = $1",
+        [id]
+    );
 
-    tasks = tasks.filter(task => task.id !== id);
-
-    return tasks.length !== initialLength;
+    return (result.rowCount ?? 0) > 0;
 };
