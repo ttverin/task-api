@@ -1,41 +1,31 @@
 import type { Request, Response } from "express";
 import * as taskService from "../services/taskService";
 
-export const getTasks = (_req: Request, res: Response) => {
-    const tasks = taskService.getAllTasks();
+export const getTasks = async (_req: Request, res: Response) => {
+    const tasks = await taskService.getAllTasks();
     res.json(tasks);
 };
 
-export const addTask = (req: Request, res: Response) => {
+export const addTask = async (req: Request, res: Response) => {
     const { name } = req.body;
 
     if (!name) {
         return res.status(400).json({ error: "Name required" });
     }
 
-    const newTask = taskService.createTask(name);
-
-    console.log(`[TASKS] Created task id=${newTask.id}`);
+    const newTask = await taskService.createTask(name);
 
     res.status(201).json(newTask);
 };
 
-export const deleteTask = (req: Request, res: Response) => {
-    const rawId = Array.isArray(req.params.id)
-        ? req.params.id[0]
-        : req.params.id;
-
-    if (!rawId) {
-        return res.status(400).json({ error: "Invalid id" });
-    }
-
-    const id = Number(rawId);
+export const deleteTask = async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
 
     if (Number.isNaN(id)) {
         return res.status(400).json({ error: "Invalid id" });
     }
 
-    const deleted = taskService.removeTask(id);
+    const deleted = await taskService.removeTask(id);
 
     if (!deleted) {
         return res.status(404).json({ error: "Task not found" });
