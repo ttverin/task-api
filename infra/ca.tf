@@ -4,6 +4,11 @@ resource "azurerm_container_app" "app" {
   resource_group_name          = azurerm_resource_group.rg.name
   revision_mode                = "Single"
 
+  registry {
+    server   = azurerm_container_registry.acr.login_server
+    identity = azurerm_user_assigned_identity.uai.id
+  }
+
   ingress {
     external_enabled = true
     target_port      = 3000
