@@ -5,7 +5,7 @@ import express from "express";
 import tasksRouter from "./routes/tasks";
 
 const app = express();
-const PORT = process.env.PORT; // uses env var if set in dotenv
+const PORT = process.env.PORT || 3000; // uses env var if set in dotenv
 
 // Middleware to parse JSON bodies
 app.use(express.json());
