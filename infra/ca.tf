@@ -4,15 +4,26 @@ resource "azurerm_container_app" "app" {
   resource_group_name          = azurerm_resource_group.rg.name
   revision_mode                = "Single"
 
-  registry {
-      server   = azurerm_container_registry.acr.login_server
-      username = azurerm_container_registry.acr.admin_username
-      password_secret_name = "acr-password"
-    }
+  identity {
+    type = "SystemAssigned"
+  }
 
   secret {
-    name  = "acr-password"
-    value = azurerm_container_registry.acr.admin_password
+    name                = "acr-username"
+    key_vault_secret_id = azurerm_key_vault_secret.acr_username.id
+    identity            = "system"
+  }
+
+  secret {
+    name                = "acr-password"
+    key_vault_secret_id = azurerm_key_vault_secret.acr_password.id
+    identity            = "system"
+  }
+
+  registry {
+    server               = azurerm_container_registry.acr.login_server
+    username             = azurerm_key_vault_secret.acr_username.value
+    password_secret_name = "acr-password"
   }
 
   ingress {
@@ -20,7 +31,7 @@ resource "azurerm_container_app" "app" {
     target_port      = 3000
 
     traffic_weight {
-      percentage = 100
+      percentage      = 100
       latest_revision = true
     }
   }
@@ -28,10 +39,16 @@ resource "azurerm_container_app" "app" {
   template {
     container {
       name   = "task-api"
-      image  = "acrtaskapidevweu.azurecr.io/task-api:latest"
+      image  = "${azurerm_container_registry.acr.login_server}/task-api:latest"
       cpu    = 0.5
       memory = "1Gi"
     }
   }
 
+  depends_on = [
+    azurerm_container_registry.acr,
+    azurerm_key_vault_secret.acr_username,
+    azurerm_key_vault_secret.acr_password,
+    time_sleep.wait_for_acr
+  ]
 }
