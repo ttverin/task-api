@@ -22,19 +22,3 @@ resource "azurerm_key_vault_access_policy" "terraform" {
   ]
 }
 
-resource "azurerm_key_vault_secret" "acr_username" {
-  name         = "acr-username"
-  value        = azurerm_container_registry.acr.admin_username
-  key_vault_id = azurerm_key_vault.kv.id
-
-  depends_on = [azurerm_container_registry.acr]
-}
-
-resource "azurerm_key_vault_secret" "acr_password" {
-  name         = "acr-password"
-  value        = azurerm_container_registry.acr.admin_password
-  key_vault_id = azurerm_key_vault.kv.id
-
-  depends_on = [azurerm_container_registry.acr]
-}
-
