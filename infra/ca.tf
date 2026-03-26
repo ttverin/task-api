@@ -32,4 +32,8 @@ resource "azurerm_container_app" "app" {
     }
 
   }
+  depends_on = [
+      azurerm_role_assignment.acr_pull
+    ]
+
 }
