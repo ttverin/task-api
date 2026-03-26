@@ -27,6 +27,40 @@ Make sure you have these installed locally:
 - npm
 - PostgreSQL
 
+## Quick start
+
+Choose one path:
+
+### A) Local Node + local Postgres
+
+```bash
+npm install
+psql postgres
+```
+
+```sql
+CREATE DATABASE taskdb;
+\c taskdb
+CREATE TABLE tasks (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL
+);
+```
+
+```bash
+npm run dev
+curl -i http://localhost:4000/health
+```
+
+### B) Docker Compose (API + DB)
+
+```bash
+docker compose up --build
+curl -i http://localhost:3000/health
+```
+
+Use `http://localhost:4000` for local `.env` flow and `http://localhost:3000` for Docker Compose flow.
+
 ## Project setup
 
 Install dependencies:
@@ -123,6 +157,17 @@ Run the compiled app:
 ```bash
 npm start
 ```
+
+## Lint and checks
+
+This repo uses ESLint flat config in `eslint.config.mjs`.
+
+```bash
+npm run lint
+npm run build
+```
+
+If lint fails in CI with `eslint: command not found`, install dependencies with `npm ci` (or `npm install`) before running `npm run lint`.
 
 ## Run with Docker Compose
 
@@ -304,6 +349,13 @@ Typical local flow:
 
 You started the app before creating the table. Run the SQL in the PostgreSQL setup section.
 
+For Docker Compose, this also happens when `docker/init.sql` was added after the volume already existed. Recreate with:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
 ### `password authentication failed`
 
 Your `.env` database credentials do not match your local PostgreSQL setup.
@@ -311,6 +363,24 @@ Your `.env` database credentials do not match your local PostgreSQL setup.
 ### `port already in use`
 
 Change `PORT` in `.env` to another free port and restart the app.
+
+### `{"error":"Internal Server Error"}` on `POST /tasks`
+
+Most common causes:
+
+- API cannot connect to Postgres (wrong host/user/password/db/port)
+- `tasks` table does not exist
+- local app points to `localhost`, but containerized app should use `DB_HOST=db` in Compose
+
+Check API logs with:
+
+```bash
+docker compose logs -f api
+```
+
+### `taskdb-#` prompt in `psql`
+
+`taskdb-#` means your SQL statement is incomplete (usually missing `;`). Finish with `;` or cancel with `Ctrl+C`.
 
 ### npm warning about `always-auth`
 
