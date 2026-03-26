@@ -5,8 +5,14 @@ resource "azurerm_container_app" "app" {
   revision_mode                = "Single"
 
   registry {
-    server   = azurerm_container_registry.acr.login_server
-    identity = azurerm_user_assigned_identity.uai.id
+      server   = azurerm_container_registry.acr.login_server
+      username = azurerm_container_registry.acr.admin_username
+      password_secret_name = "acr-password"
+    }
+
+  secret {
+    name  = "acr-password"
+    value = azurerm_container_registry.acr.admin_password
   }
 
   ingress {
@@ -19,10 +25,6 @@ resource "azurerm_container_app" "app" {
     }
   }
 
-  identity {
-    type = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.uai.id]
-  }
   template {
     container {
       name   = "task-api"
@@ -30,10 +32,6 @@ resource "azurerm_container_app" "app" {
       cpu    = 0.5
       memory = "1Gi"
     }
-
   }
-  depends_on = [
-      azurerm_role_assignment.acr_pull
-    ]
 
 }
