@@ -10,6 +10,14 @@ resource "azurerm_postgresql_flexible_server" "db" {
   version  = "14"
 
   storage_mb = 32768
+
+  lifecycle {
+    ignore_changes = [
+      high_availability,
+      zone
+    ]
+  }
+
 }
 
 resource "azurerm_postgresql_flexible_server_database" "db" {
