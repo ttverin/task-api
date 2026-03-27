@@ -1,14 +1,53 @@
 name: terraform
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
   workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Terraform environment folder"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - prod
+      apply:
+        description: "Apply planned changes"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
 
 
 jobs:
-  terraform:
+  plan:
+    name: Terraform plan
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
+      TF_IN_AUTOMATION: "true"
       TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+      TF_TARGET_ENV: ${{ github.event.inputs.target_env || 'staging' }}
+      TF_ROOT: infra/environments/${{ github.event.inputs.target_env || 'staging' }}
 
     steps:
       - name: Checkout
@@ -22,14 +61,62 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive
+        working-directory: infra
+
       - name: Terraform Init
         run: terraform init
-        working-directory: infra
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ env.TF_ROOT }}
 
       - name: Terraform Plan
-        run: terraform plan
-        working-directory: infra
+        run: terraform plan -out=tfplan
+        working-directory: ${{ env.TF_ROOT }}
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_TARGET_ENV }}
+          path: ${{ env.TF_ROOT }}/tfplan
+
+  apply:
+    name: Terraform apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: plan
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.apply == 'true'
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+      TF_TARGET_ENV: ${{ github.event.inputs.target_env || 'staging' }}
+      TF_ROOT: infra/environments/${{ github.event.inputs.target_env || 'staging' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ env.TF_TARGET_ENV }}
+          path: ${{ env.TF_ROOT }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.TF_ROOT }}
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve
-        working-directory: infra
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_ROOT }}

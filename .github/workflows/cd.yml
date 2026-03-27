@@ -1,21 +1,35 @@
 name: build-and-deploy
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Optional image tag (defaults to commit SHA)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  deploy:
+    name: Build, push, and deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     env:
       ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
       IMAGE_NAME: task-api
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       CONTAINER_APP_NAME: ${{ secrets.CONTAINER_APP_NAME }}
-      IMAGE_TAG: ${{ github.sha }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Azure Login
@@ -23,8 +37,18 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Resolve image tag
+        id: meta
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="${GITHUB_SHA}"
+          fi
+          echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Login to ACR
-        run: az acr login --name acrtaskapidevweu
+        run: az acr login --name "${ACR_LOGIN_SERVER%%.azurecr.io}"
 
 
       - name: Set up Docker Buildx
@@ -34,12 +58,27 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
-            -t $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG \
+            -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ steps.meta.outputs.image_tag }}" \
             --push .
 
       - name: Deploy to Container App
         run: |
           az containerapp update \
-            --name $CONTAINER_APP_NAME \
-            --resource-group $RESOURCE_GROUP \
-            --image $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ steps.meta.outputs.image_tag }}"
+
+      - name: Smoke test health endpoint
+        run: |
+          FQDN=$(az containerapp show \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+
+          for i in 1 2 3 4 5; do
+            curl -fsS "https://$FQDN/health" && exit 0
+            sleep 8
+          done
+
+          echo "Health check failed for $FQDN"
+          exit 1
