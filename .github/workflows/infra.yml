@@ -7,6 +7,8 @@ on:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    env:
+      TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
 
     steps:
       - name: Checkout

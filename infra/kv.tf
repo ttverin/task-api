@@ -22,3 +22,10 @@ resource "azurerm_key_vault_access_policy" "terraform" {
   ]
 }
 
+resource "azurerm_key_vault_secret" "db_url" {
+  name         = "database-url"
+  value        = "postgresql://user:password@host:5432/db?sslmode=require"
+  key_vault_id = azurerm_key_vault.kv.id
+
+  depends_on = [azurerm_key_vault_access_policy.terraform]
+}
