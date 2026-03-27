@@ -3,7 +3,7 @@ variable "postgres_password" {
 }
 
 locals {
-  db_user     = "psqladmin@psql-task-api-dev-weu"
+  db_user     = "psqladmin"
   db_host     = "psql-task-api-dev-weu.postgres.database.azure.com"
   db_name     = "taskdb"
 
