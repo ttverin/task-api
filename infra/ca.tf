@@ -5,19 +5,16 @@ resource "azurerm_container_app" "app" {
 
   revision_mode = "Single"
 
-  # Secret
   secret {
     name  = "database-url"
-    value = "postgresql://psqladmin@psql-task-api-dev-weu:${var.postgres_password}@psql-task-api-dev-weu.postgres.database.azure.com:5432/taskdb?sslmode=require"
+    value = local.database_url
   }
 
-  # Identity
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.uai.id]
   }
 
-  # Registry
   registry {
     server   = azurerm_container_registry.acr.login_server
     identity = azurerm_user_assigned_identity.uai.id
@@ -48,7 +45,6 @@ resource "azurerm_container_app" "app" {
     }
   }
 
-  # IMPORTANT: ensures RBAC is ready
   depends_on = [
     azurerm_role_assignment.acr_pull
   ]
