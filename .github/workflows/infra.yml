@@ -2,13 +2,20 @@ name: terraform
 
 on:
   workflow_dispatch:
-
+    inputs:
+      image_tag:
+        description: "Container image tag to deploy"
+        required: false
+        default: "latest"
 
 jobs:
-  terraform:
+  staging:
+    name: "Terraform – staging"
     runs-on: ubuntu-latest
+    environment: staging
     env:
-      TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+      TF_VAR_postgres_password: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
+      TF_VAR_image_tag: ${{ github.event.inputs.image_tag }}
 
     steps:
       - name: Checkout
@@ -24,12 +31,45 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        working-directory: infra
+        working-directory: infra/environments/staging
 
       - name: Terraform Plan
         run: terraform plan
-        working-directory: infra
+        working-directory: infra/environments/staging
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
-        working-directory: infra
+        working-directory: infra/environments/staging
+
+  prod:
+    name: "Terraform – prod"
+    runs-on: ubuntu-latest
+    needs: staging
+    environment: production
+    env:
+      TF_VAR_postgres_password: ${{ secrets.PROD_POSTGRES_PASSWORD }}
+      TF_VAR_image_tag: ${{ github.event.inputs.image_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra/environments/prod
+
+      - name: Terraform Plan
+        run: terraform plan
+        working-directory: infra/environments/prod
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: infra/environments/prod

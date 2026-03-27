@@ -3,6 +3,7 @@ terraform {
     resource_group_name  = "taskapi-tfstate-rg"
     storage_account_name = "taskapitfstatep72q4"
     container_name       = "tfstate"
-    key                  = "taskapi-platform.tfstate"
+    key                  = "taskapi-staging.tfstate"
   }
 }
+
