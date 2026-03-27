@@ -1,18 +1,26 @@
-name: build-and-deploy
+name: CD Pipeline
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "**/*"
+      - "!infra/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  IMAGE_NAME: task-api
+  RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+  CONTAINER_APP_NAME: ${{ secrets.CONTAINER_APP_NAME }}
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  build-and-deploy:
+  build-deploy:
     runs-on: ubuntu-latest
-
-    env:
-      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
-      IMAGE_NAME: task-api
-      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
-      CONTAINER_APP_NAME: ${{ secrets.CONTAINER_APP_NAME }}
-      IMAGE_TAG: ${{ github.sha }}
 
     steps:
       - name: Checkout repository
@@ -26,18 +34,17 @@ jobs:
       - name: Login to ACR
         run: az acr login --name acrtaskapidevweu
 
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image (amd64)
+      - name: Build and push image
         run: |
           docker buildx build \
             --platform linux/amd64 \
             -t $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG \
             --push .
 
-      - name: Deploy to Container App
+      - name: Deploy to Azure Container Apps
         run: |
           az containerapp update \
             --name $CONTAINER_APP_NAME \

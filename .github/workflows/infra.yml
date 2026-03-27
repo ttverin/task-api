@@ -1,17 +1,29 @@
-name: terraform
+name: Infrastructure (Terraform)
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action"
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
 
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
+
     env:
       TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Azure Login
@@ -23,13 +35,14 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        run: terraform init
         working-directory: infra
+        run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan
         working-directory: infra
+        run: terraform plan
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve
+        if: github.event.inputs.action == 'apply'
         working-directory: infra
+        run: terraform apply -auto-approve
