@@ -35,19 +35,22 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 // -------------------- STARTUP --------------------
+
 async function start() {
     try {
-        console.log("Running DB migrations...");
+        console.log("DATABASE_URL =", process.env.DATABASE_URL);
+
+        await pool.query("SELECT 1");
+        console.log("DB connected");
+
         await runMigrations(pool);
+        console.log("Migrations done");
 
         app.listen(PORT, () => {
-            console.log(`Server running on http://localhost:${PORT}`);
+            console.log(`Server running on ${PORT}`);
         });
 
     } catch (err) {
-        console.error("Failed to start app:", err);
-        process.exit(1);
+        console.error("Startup failed:", err);
     }
 }
-
-start();
