@@ -54,3 +54,4 @@ async function start() {
         console.error("Startup failed:", err);
     }
 }
+void start();
